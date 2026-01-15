@@ -1,9 +1,9 @@
 // functions/src/routes/users.ts
-import express, { Request, Response } from "express";
+import express, {Request, Response} from "express";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { validateDocument } from "../utils/validateDocument";
-import { Collection } from "../constants/Collection";
+import {validateDocument} from "../utils/validateDocument";
+import {Collection} from "../constants/Collection";
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ router.get("/", async (_, res: Response) => {
     const snapshot = await admin.firestore().collection("users").get();
     const users: any[] = [];
     snapshot.forEach((doc) => {
-      users.push({ id: doc.id, ...doc.data() });
+      users.push({id: doc.id, ...doc.data()});
     });
     res.status(200).json(users);
   } catch (error) {
@@ -26,7 +26,7 @@ router.get("/", async (_, res: Response) => {
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const doc = await validateDocument(req.params.id, Collection.USERS, res);
-    res.status(200).json({ id: doc.id, ...doc.data() });
+    res.status(200).json({id: doc.id, ...doc.data()});
   } catch (error: any) {
     logger.error("Error getting user:", error);
     res.status(500).send("Error getting user");
@@ -37,7 +37,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.post("/", async (req: Request, res: Response) => {
   try {
     const docRef = await admin.firestore().collection("users").add(req.body);
-    res.status(201).json({ id: docRef.id, message: "User added successfully" });
+    res.status(201).json({id: docRef.id, message: "User added successfully"});
   } catch (error) {
     logger.error("Error adding user:", error);
     res.status(500).send("Error adding user");
@@ -49,7 +49,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
   try {
     await validateDocument(req.params.id, Collection.USERS, res); // Validate before updating
     await admin.firestore().collection(Collection.USERS).doc(req.params.id).update(req.body);
-    res.status(200).json({ message: "User updated successfully" });
+    res.status(200).json({message: "User updated successfully"});
   } catch (error: any) {
     logger.error("Error updating user:", error);
     res.status(500).send("Error updating user");
@@ -61,7 +61,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   try {
     await validateDocument(req.params.id, Collection.USERS, res);
     await admin.firestore().collection(Collection.USERS).doc(req.params.id).delete();
-    res.status(200).json({ message: "User deleted successfully" });
+    res.status(200).json({message: "User deleted successfully"});
   } catch (error: any) {
     logger.error("Error updating user:", error);
     res.status(500).send("Error deleting user");

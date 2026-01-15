@@ -8,6 +8,8 @@ import * as admin from "firebase-admin";
 // Routes
 import usersRouter from "./routes/users";
 import projectsRouter from "./routes/projects";
+import invitationsRouter from "./routes/invitations";
+import ambagsRouter from "./routes/ambags";
 
 setGlobalOptions({maxInstances: 10});
 
@@ -34,5 +36,11 @@ app.use("/users", usersRouter);
 
 // projects route
 app.use("/projects", projectsRouter);
+
+// invitations route
+app.use("/invitations", invitationsRouter);
+
+// ambags route
+app.use("/ambags", ambagsRouter);
 
 exports.api = onRequest({region: "asia-southeast1"}, app);
