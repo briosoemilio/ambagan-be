@@ -7,6 +7,7 @@ import * as admin from "firebase-admin";
 
 // Routes
 import usersRouter from "./routes/users";
+import projectsRouter from "./routes/projects";
 
 setGlobalOptions({maxInstances: 10});
 
@@ -30,5 +31,8 @@ app.get("/hello", (_, res) => {
 
 // users route
 app.use("/users", usersRouter);
+
+// projects route
+app.use("/projects", projectsRouter);
 
 exports.api = onRequest({region: "asia-southeast1"}, app);
