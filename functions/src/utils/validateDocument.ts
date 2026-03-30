@@ -2,10 +2,14 @@ import * as admin from "firebase-admin";
 import {Response} from "express";
 import {Collection} from "../constants/Collection";
 
-export const validateDocument = async (id: string, collection: Collection, res: Response) => {
+export const validateDocument = async (
+  id: string,
+  collection: Collection,
+  res: Response,
+): Promise<admin.firestore.DocumentSnapshot> => {
   if (!Object.values(Collection).includes(collection)) {
     const error = new Error("Invalid collection");
-    (error as any).statusCode = 400;
+    (error as unknown as { statusCode: number }).statusCode = 400;
     throw error;
   }
 
@@ -13,8 +17,10 @@ export const validateDocument = async (id: string, collection: Collection, res: 
   if (!doc.exists) {
     const NOT_FOUND_CODE = 404;
     const error = new Error(`${collection} not found`);
-    (error as any).statusCode = NOT_FOUND_CODE;
-    res.status(NOT_FOUND_CODE).send({code: NOT_FOUND_CODE, message: `${collection} not found`});
+    (error as unknown as { statusCode: number }).statusCode = NOT_FOUND_CODE;
+    res
+      .status(NOT_FOUND_CODE)
+      .send({code: NOT_FOUND_CODE, message: `${collection} not found`});
     throw error;
   }
   return doc;

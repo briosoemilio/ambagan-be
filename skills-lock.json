@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "expressjs-development": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "computedHash": "79f9dce5dc9912b8a9ad9fd153885554106aef902822650601023c7f41b080af"
+    },
+    "firebase-auth-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "df411eb125374de6086edd38dd739769088b60945052060aec1f57f934be3e27"
+    },
+    "firebase-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "dcfb68b53e2a23fc17d0b23a221903d72b475692c23e7018abc99150d740e803"
+    },
+    "firebase-firestore-standard": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "44c36234de9769969340f05b235e71c54471ae1ad1152ce2ffea66c80d0db8ca"
+    },
+    "firebase-functions": {
+      "source": "bumgeunsong/daily-writing-friends",
+      "sourceType": "github",
+      "computedHash": "5323e8d2ca5b15fbc2e918a2252915e995591a1b0a2ed3a57d746ca67ad7e785"
+    }
+  }
+}

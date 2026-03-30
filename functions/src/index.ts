@@ -1,4 +1,5 @@
 import {setGlobalOptions} from "firebase-functions";
+import * as functions from "firebase-functions/v1";
 import {onRequest} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import express from "express";
@@ -44,3 +45,25 @@ app.use("/invitations", invitationsRouter);
 app.use("/ambags", ambagsRouter);
 
 exports.api = onRequest({region: "asia-southeast1"}, app);
+
+// Triggered when a new user is created in Firebase Authentication
+exports.onUserCreate = functions
+  .region("asia-southeast1")
+  .auth.user()
+  .onCreate(async (user) => {
+    logger.info("A new user is created", user);
+
+    const {uid, email, displayName, photoURL} = user;
+
+    try {
+      await admin.firestore().collection("users").doc(uid).set({
+        email,
+        displayName,
+        photoURL,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info(`User document created for UID: ${uid}`);
+    } catch (error) {
+      logger.error(`Error creating user document for UID: ${uid}`, error);
+    }
+  });

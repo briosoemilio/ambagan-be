@@ -5,13 +5,14 @@ import * as logger from "firebase-functions/logger";
 import {validateDocument} from "../utils/validateDocument";
 import {Collection} from "../constants/Collection";
 
-const router = express.Router();
+// eslint-disable-next-line new-cap
+const usersRouter = express.Router();
 
 // GET /users - Get all users
-router.get("/", async (_, res: Response) => {
+usersRouter.get("/", async (_, res: Response) => {
   try {
     const snapshot = await admin.firestore().collection("users").get();
-    const users: any[] = [];
+    const users: Record<string, unknown>[] = [];
     snapshot.forEach((doc) => {
       users.push({id: doc.id, ...doc.data()});
     });
@@ -23,18 +24,18 @@ router.get("/", async (_, res: Response) => {
 });
 
 // GET /users/:id - Get a single user
-router.get("/:id", async (req: Request, res: Response) => {
+usersRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const doc = await validateDocument(req.params.id, Collection.USERS, res);
     res.status(200).json({id: doc.id, ...doc.data()});
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Error getting user:", error);
     res.status(500).send("Error getting user");
   }
 });
 
 // POST /users - Create a new user
-router.post("/", async (req: Request, res: Response) => {
+usersRouter.post("/", async (req: Request, res: Response) => {
   try {
     const docRef = await admin.firestore().collection("users").add(req.body);
     res.status(201).json({id: docRef.id, message: "User added successfully"});
@@ -45,27 +46,35 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // PATCH /users/:id - Update a user
-router.patch("/:id", async (req: Request, res: Response) => {
+usersRouter.patch("/:id", async (req: Request, res: Response) => {
   try {
-    await validateDocument(req.params.id, Collection.USERS, res); // Validate before updating
-    await admin.firestore().collection(Collection.USERS).doc(req.params.id).update(req.body);
+    await validateDocument(req.params.id, Collection.USERS, res);
+    await admin
+      .firestore()
+      .collection(Collection.USERS)
+      .doc(req.params.id)
+      .update(req.body);
     res.status(200).json({message: "User updated successfully"});
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Error updating user:", error);
     res.status(500).send("Error updating user");
   }
 });
 
 // DELETE /users/:id - Delete a user
-router.delete("/:id", async (req: Request, res: Response) => {
+usersRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
     await validateDocument(req.params.id, Collection.USERS, res);
-    await admin.firestore().collection(Collection.USERS).doc(req.params.id).delete();
+    await admin
+      .firestore()
+      .collection(Collection.USERS)
+      .doc(req.params.id)
+      .delete();
     res.status(200).json({message: "User deleted successfully"});
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Error updating user:", error);
     res.status(500).send("Error deleting user");
   }
 });
 
-export default router;
+export default usersRouter;
