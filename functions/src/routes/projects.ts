@@ -64,20 +64,45 @@ projectsRouter.post(
   authenticated,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const docRef = await admin
+      const userId = req.user?.uid as string;
+      const userRef = admin
+        .firestore()
+        .collection(Collection.USERS)
+        .doc(userId);
+      const projectRef = admin
         .firestore()
         .collection(Collection.PROJECTS)
-        .add({
+        .doc();
+
+      await admin.firestore().runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists) {
+          throw new Error("User not found");
+        }
+
+        const owner = {
+          name: userDoc.data()?.displayName || "",
+          photoUrl: userDoc.data()?.photoURL || "",
+        };
+
+        transaction.set(projectRef, {
           ...req.body,
-          createdBy: req.user?.uid,
+          owner,
+          createdBy: userId,
           createdAt: FieldValue.serverTimestamp(),
         });
+      });
+
       res
         .status(201)
-        .json({id: docRef.id, message: "Project added successfully"});
+        .json({id: projectRef.id, message: "Project added successfully"});
     } catch (error) {
       logger.error("Error adding project:", error);
-      res.status(500).send("Error adding project");
+      if (error instanceof Error && error.message === "User not found") {
+        res.status(404).send("User not found");
+      } else {
+        res.status(500).send("Error adding project");
+      }
     }
   },
 );
@@ -98,9 +123,7 @@ projectsRouter.patch(
       const creator = await isProjectCreator(userId, projectId);
 
       if (!creator) {
-        return res
-          .status(403)
-          .send(ERROR_MESSAGES.FORBIDDEN);
+        return res.status(403).send(ERROR_MESSAGES.FORBIDDEN);
       }
 
       await admin
@@ -135,9 +158,7 @@ projectsRouter.delete(
       const creator = await isProjectCreator(userId, projectId);
 
       if (!creator) {
-        return res
-          .status(403)
-          .send(ERROR_MESSAGES.FORBIDDEN);
+        return res.status(403).send(ERROR_MESSAGES.FORBIDDEN);
       }
 
       await admin
