@@ -16,3 +16,24 @@ export const isProjectCreator = async (
   const projectData = doc.data();
   return projectData?.createdBy === userId;
 };
+
+export const isProjectMemberOrCreator = async (
+  userId: string,
+  projectId: string,
+): Promise<boolean> => {
+  const projectDoc = await admin
+    .firestore()
+    .collection(Collection.PROJECTS)
+    .doc(projectId)
+    .get();
+
+  if (!projectDoc.exists) {
+    return false;
+  }
+
+  const projectData = projectDoc.data();
+  const isCreator = projectData?.createdBy === userId;
+  const isMember = projectData?.members?.includes(userId);
+
+  return isCreator || isMember;
+};

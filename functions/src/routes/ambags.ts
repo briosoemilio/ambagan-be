@@ -10,6 +10,8 @@ import {
 } from "../middlewares/authenticated";
 import {AmbagSchema} from "../schemas/AmbagSchema";
 import {validateBody} from "../middlewares/validateBody";
+import {isProjectMemberOrCreator} from "../utils/projectHelpers";
+import {ERROR_MESSAGES} from "../constants/ERROR_MESSAGES";
 
 // eslint-disable-next-line new-cap
 const ambagsRouter = express.Router();
@@ -20,22 +22,44 @@ ambagsRouter.use(authenticated);
 ambagsRouter.get(
   "/",
   authenticated,
-  async (_, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const snapshot = await admin
+      // validate projectId query parameter
+      const {projectId} = req.query;
+      if (!projectId || typeof projectId !== "string") {
+        return res.status(400).send("projectId is required");
+      }
+
+      // validate if user is a member or creator of the project
+      const userId = req.user?.uid as string;
+      const isMemberOrCreator = await isProjectMemberOrCreator(
+        userId,
+        projectId,
+      );
+      if (!isMemberOrCreator) {
+        return res.status(403).send(ERROR_MESSAGES.FORBIDDEN);
+      }
+
+      // validate if project exists
+      await validateDocument(projectId, Collection.PROJECTS, res);
+
+      // fetch ambags for the project
+      const query = admin
         .firestore()
         .collection(Collection.AMBAGS)
-        .get();
+        .where("projectId", "==", projectId);
+      const snapshot = await query.get();
       const ambags: Record<string, unknown>[] = [];
       snapshot.forEach((doc) => {
         ambags.push({id: doc.id, ...doc.data()});
       });
-      res.status(200).json(ambags);
+      return res.status(200).json(ambags);
     } catch (error) {
       logger.error("Error getting ambags:", error);
-      res.status(500).send("Error getting ambags");
+      return res.status(500).send("Error getting ambags");
     }
-  });
+  },
+);
 
 // GET /ambags/:id - Get a single ambag
 ambagsRouter.get(
