@@ -10,8 +10,8 @@ import {
 } from "../middlewares/authenticated";
 import {AmbagSchema} from "../schemas/AmbagSchema";
 import {validateBody} from "../middlewares/validateBody";
-import {isProjectMemberOrCreator} from "../utils/projectHelpers";
-import {ERROR_MESSAGES} from "../constants/ERROR_MESSAGES";
+import {authorizeProjectMember} from "../middlewares/authorizeProjectMember";
+import {authorizeAmbagOwner} from "../middlewares/authorizeAmbagOwner";
 
 // eslint-disable-next-line new-cap
 const ambagsRouter = express.Router();
@@ -22,28 +22,10 @@ ambagsRouter.use(authenticated);
 ambagsRouter.get(
   "/",
   authenticated,
+  authorizeProjectMember,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // validate projectId query parameter
       const {projectId} = req.query;
-      if (!projectId || typeof projectId !== "string") {
-        return res.status(400).send("projectId is required");
-      }
-
-      // validate if user is a member or creator of the project
-      const userId = req.user?.uid as string;
-      const isMemberOrCreator = await isProjectMemberOrCreator(
-        userId,
-        projectId,
-      );
-      if (!isMemberOrCreator) {
-        return res.status(403).send(ERROR_MESSAGES.FORBIDDEN);
-      }
-
-      // validate if project exists
-      await validateDocument(projectId, Collection.PROJECTS, res);
-
-      // fetch ambags for the project
       const query = admin
         .firestore()
         .collection(Collection.AMBAGS)
@@ -80,6 +62,7 @@ ambagsRouter.post(
   "/",
   authenticated,
   validateBody(AmbagSchema),
+  authorizeProjectMember,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.uid as string;
@@ -139,6 +122,8 @@ ambagsRouter.post(
 ambagsRouter.patch(
   "/:id",
   authenticated,
+  authorizeAmbagOwner,
+  validateBody(AmbagSchema.partial()),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       await validateDocument(req.params.id, Collection.AMBAGS, res);
@@ -146,18 +131,24 @@ ambagsRouter.patch(
         .firestore()
         .collection(Collection.AMBAGS)
         .doc(req.params.id)
-        .update(req.body);
+        .update({
+          ...req.body,
+          updatedAt: FieldValue.serverTimestamp(),
+          updatedBy: req.user?.uid,
+        });
       res.status(200).json({message: "Ambag updated successfully"});
     } catch (error) {
       logger.error("Error updating ambag:", error);
       res.status(500).send("Error updating ambag");
     }
-  });
+  },
+);
 
 // DELETE /ambags/:id - Delete an ambag
 ambagsRouter.delete(
   "/:id",
   authenticated,
+  authorizeAmbagOwner,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       await validateDocument(req.params.id, Collection.AMBAGS, res);
