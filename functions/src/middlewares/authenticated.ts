@@ -4,6 +4,7 @@ import * as logger from "firebase-functions/logger";
 
 export interface AuthenticatedRequest extends Request {
   user?: admin.auth.DecodedIdToken;
+  rawBody?: Buffer;
 }
 
 export const authenticated = async (

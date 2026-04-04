@@ -12,6 +12,7 @@ import {AmbagSchema} from "../schemas/AmbagSchema";
 import {validateBody} from "../middlewares/validateBody";
 import {authorizeProjectMember} from "../middlewares/authorizeProjectMember";
 import {authorizeAmbagOwner} from "../middlewares/authorizeAmbagOwner";
+import _busboy from "busboy";
 
 // eslint-disable-next-line new-cap
 const ambagsRouter = express.Router();
@@ -165,3 +166,52 @@ ambagsRouter.delete(
   });
 
 export default ambagsRouter;
+
+// POST /ambags/upload - Upload a photo for an ambag
+ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
+  const busboy = _busboy({headers: req.headers});
+  const bucket = admin.storage().bucket();
+
+  busboy.on(
+    "file",
+    (
+      fieldname: string,
+      file: NodeJS.ReadableStream,
+      filename: {filename: string; encoding: string; mimeType: string},
+    ) => {
+      const storageFile = bucket.file(filename.filename);
+      const stream = storageFile.createWriteStream();
+
+      file.pipe(stream);
+
+      stream.on("error", (err) => {
+        logger.error("Storage stream error:", err);
+        res.status(500).send("Error uploading file.");
+      });
+
+      stream.on("finish", async () => {
+        try {
+          const publicUrl = await storageFile.getSignedUrl({
+            action: "read",
+            expires: "03-09-2491",
+          });
+
+          // Log the upload to Firestore
+          await admin.firestore().collection(Collection.UPLOADS).add({
+            photoUrl: publicUrl[0],
+            storagePath: storageFile.name,
+            uploadedBy: req.user?.uid,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+
+          res.status(200).json({photoUrl: publicUrl[0]});
+        } catch (error) {
+          logger.error("Error in finish event:", error);
+          res.status(500).send("Error processing file after upload.");
+        }
+      });
+    },
+  );
+
+  busboy.end(req.rawBody);
+});
