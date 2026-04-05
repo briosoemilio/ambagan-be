@@ -56,7 +56,8 @@ ambagsRouter.get(
       logger.error("Error getting ambag:", error);
       res.status(500).send("Error getting ambag");
     }
-  });
+  },
+);
 
 // POST /ambags - Create a new ambag
 ambagsRouter.post(
@@ -71,9 +72,7 @@ ambagsRouter.post(
         .firestore()
         .collection(Collection.USERS)
         .doc(userId);
-      const ambagRef = admin
-        .firestore()
-        .collection(Collection.AMBAGS).doc();
+      const ambagRef = admin.firestore().collection(Collection.AMBAGS).doc();
       const projectRef = admin
         .firestore()
         .collection(Collection.PROJECTS)
@@ -101,6 +100,18 @@ ambagsRouter.post(
           createdBy: userId,
           createdAt: FieldValue.serverTimestamp(),
         });
+
+        // extract the uploadId from the receipt
+        //  update by adding the ambagId to the upload document
+        if (req.body.receipt?.uploadId) {
+          const uploadRef = admin
+            .firestore()
+            .collection(Collection.UPLOADS)
+            .doc(req.body.receipt.uploadId);
+          transaction.update(uploadRef, {
+            ambagId: ambagRef.id,
+          });
+        }
       });
 
       res
@@ -163,7 +174,8 @@ ambagsRouter.delete(
       logger.error("Error deleting ambag:", error);
       res.status(500).send("Error deleting ambag");
     }
-  });
+  },
+);
 
 export default ambagsRouter;
 
@@ -177,7 +189,7 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
     (
       fieldname: string,
       file: NodeJS.ReadableStream,
-      filename: {filename: string; encoding: string; mimeType: string},
+      filename: { filename: string; encoding: string; mimeType: string },
     ) => {
       const storageFile = bucket.file(filename.filename);
       const stream = storageFile.createWriteStream();
@@ -198,15 +210,19 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
           const publicUrl = `https://storage.googleapis.com/${bucket.name}/${storageFile.name}`;
 
           // Log the upload to Firestore
-          await admin.firestore().collection(Collection.UPLOADS).add({
-            photoUrl: publicUrl, // Use the new public URL
-            storagePath: storageFile.name,
-            uploadedBy: req.user?.uid,
-            createdAt: FieldValue.serverTimestamp(),
-          });
+          const uploadDocRef = await admin
+            .firestore()
+            .collection(Collection.UPLOADS)
+            .add({
+              photoUrl: publicUrl,
+              storagePath: storageFile.name,
+              uploadedBy: req.user?.uid,
+              createdAt: FieldValue.serverTimestamp(),
+            });
 
           res.status(200).json({
             photoUrl: publicUrl,
+            uploadId: uploadDocRef.id,
           });
         } catch (error) {
           logger.error("Error in finish event:", error);
