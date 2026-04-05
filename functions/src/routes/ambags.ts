@@ -12,6 +12,7 @@ import {AmbagSchema} from "../schemas/AmbagSchema";
 import {validateBody} from "../middlewares/validateBody";
 import {authorizeProjectMember} from "../middlewares/authorizeProjectMember";
 import {authorizeAmbagOwner} from "../middlewares/authorizeAmbagOwner";
+import {generateUploadFolderPath} from "../utils/generateUploadFolderPath";
 import _busboy from "busboy";
 
 // eslint-disable-next-line new-cap
@@ -184,6 +185,15 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
   const busboy = _busboy({headers: req.headers});
   const bucket = admin.storage().bucket();
 
+  // Extract projectName and projectId from query parameters
+  const {projectName, projectId} = req.query;
+  if (!projectName || !projectId) {
+    res.status(400).send("Project name and ID are required.");
+    return;
+  }
+
+  let fileProcessed = false;
+
   busboy.on(
     "file",
     (
@@ -191,14 +201,25 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
       file: NodeJS.ReadableStream,
       filename: { filename: string; encoding: string; mimeType: string },
     ) => {
-      const storageFile = bucket.file(filename.filename);
+      fileProcessed = true;
+
+      // Generate file path in Cloud Storage
+      const filePath = generateUploadFolderPath({
+        projectName: projectName as string,
+        projectId: projectId as string,
+        userId: req.user?.uid as string,
+        fileName: filename.filename,
+      });
+      const storageFile = bucket.file(filePath);
       const stream = storageFile.createWriteStream();
 
       file.pipe(stream);
 
       stream.on("error", (err) => {
         logger.error("Storage stream error:", err);
-        res.status(500).send("Error uploading file.");
+        if (!res.headersSent) {
+          res.status(500).send("Error uploading file.");
+        }
       });
 
       stream.on("finish", async () => {
@@ -220,17 +241,28 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
               createdAt: FieldValue.serverTimestamp(),
             });
 
-          res.status(200).json({
-            photoUrl: publicUrl,
-            uploadId: uploadDocRef.id,
-          });
+          if (!res.headersSent) {
+            res.status(200).json({
+              photoUrl: publicUrl,
+              uploadId: uploadDocRef.id,
+            });
+          }
         } catch (error) {
           logger.error("Error in finish event:", error);
-          res.status(500).send("Error processing file after upload.");
+          if (!res.headersSent) {
+            res.status(500).send("Error processing file after upload.");
+          }
         }
       });
     },
   );
 
+  busboy.on("finish", () => {
+    if (!fileProcessed && !res.headersSent) {
+      res.status(400).send("No file uploaded.");
+    }
+  });
+
   busboy.end(req.rawBody);
+  return;
 });
