@@ -191,20 +191,23 @@ ambagsRouter.post("/upload", (req: AuthenticatedRequest, res: Response) => {
 
       stream.on("finish", async () => {
         try {
-          const publicUrl = await storageFile.getSignedUrl({
-            action: "read",
-            expires: "03-09-2491",
-          });
+          // Make the file publicly readable
+          await storageFile.makePublic();
+
+          // Construct the permanent public URL
+          const publicUrl = `https://storage.googleapis.com/${bucket.name}/${storageFile.name}`;
 
           // Log the upload to Firestore
           await admin.firestore().collection(Collection.UPLOADS).add({
-            photoUrl: publicUrl[0],
+            photoUrl: publicUrl, // Use the new public URL
             storagePath: storageFile.name,
             uploadedBy: req.user?.uid,
             createdAt: FieldValue.serverTimestamp(),
           });
 
-          res.status(200).json({photoUrl: publicUrl[0]});
+          res.status(200).json({
+            photoUrl: publicUrl,
+          });
         } catch (error) {
           logger.error("Error in finish event:", error);
           res.status(500).send("Error processing file after upload.");
