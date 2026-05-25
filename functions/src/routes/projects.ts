@@ -89,6 +89,7 @@ projectsRouter.post(
           ...req.body,
           owner,
           createdBy: userId,
+          members: [userId],
           createdAt: FieldValue.serverTimestamp(),
         });
       });
