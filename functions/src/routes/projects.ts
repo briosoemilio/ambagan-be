@@ -89,7 +89,7 @@ projectsRouter.post(
           id: userId,
           ...owner,
           isPending: false,
-          addedAt: FieldValue.serverTimestamp(),
+          addedAt: admin.firestore.Timestamp.now(),
         };
 
         transaction.set(projectRef, {
