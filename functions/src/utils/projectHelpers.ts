@@ -33,7 +33,9 @@ export const isProjectMemberOrCreator = async (
 
   const projectData = projectDoc.data();
   const isCreator = projectData?.createdBy === userId;
-  const isMember = projectData?.members?.includes(userId);
+  const isMember = Array.isArray(projectData?.members) ?
+    projectData.members.some((member) => member?.id === userId) :
+    false;
 
   return isCreator || isMember;
 };

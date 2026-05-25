@@ -1,4 +1,4 @@
-import {FieldValue} from "firebase-admin/firestore";
+import {FieldValue, Timestamp} from "firebase-admin/firestore";
 import express, {Response} from "express";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -28,7 +28,9 @@ projectsRouter.get(
       const projects: Record<string, unknown>[] = [];
       snapshot.forEach((doc) => {
         const projectData = doc.data();
-        const isMember = projectData?.members?.includes(userId);
+        const isMember = Array.isArray(projectData?.members) ?
+          projectData.members.some((member) => member?.id === userId) :
+          false;
         const isCreator = projectData?.createdBy === userId;
         if (isMember || isCreator) {
           projects.push({id: doc.id, ...projectData});
@@ -89,7 +91,7 @@ projectsRouter.post(
           id: userId,
           ...owner,
           isPending: false,
-          addedAt: admin.firestore.Timestamp.now(),
+          addedAt: Timestamp.now(),
         };
 
         transaction.set(projectRef, {
