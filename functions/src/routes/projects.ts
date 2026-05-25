@@ -9,7 +9,7 @@ import {
   AuthenticatedRequest,
 } from "../middlewares/authenticated";
 import {ERROR_MESSAGES} from "../constants/ERROR_MESSAGES";
-import {isProjectCreator} from "../utils/projectHelpers";
+import {buildProjectMetrics, isProjectCreator} from "../utils/projectHelpers";
 
 // eslint-disable-next-line new-cap
 const projectsRouter = express.Router();
@@ -52,10 +52,38 @@ projectsRouter.get(
     try {
       const id = req.params.id;
       const doc = await validateDocument(id, Collection.PROJECTS, res);
-      res.status(200).json({id: doc.id, ...doc.data()});
+      const projectData = doc.data() as Record<string, unknown> | undefined;
+
+      const includeMetrics = req.query.includeMetrics !== "false";
+
+      if (!includeMetrics) {
+        return res.status(200).json({
+          id: doc.id,
+          ...projectData,
+        });
+      }
+
+      const ambagSnapshot = await admin
+        .firestore()
+        .collection(Collection.AMBAGS)
+        .where("projectId", "==", id)
+        .get();
+
+      const ambags: Record<string, unknown>[] = [];
+      ambagSnapshot.forEach((ambagDoc) => {
+        ambags.push(ambagDoc.data());
+      });
+
+      const metrics = buildProjectMetrics(ambags, projectData);
+
+      return res.status(200).json({
+        id: doc.id,
+        ...projectData,
+        metrics,
+      });
     } catch (error) {
       logger.error("Error getting project:", error);
-      res.status(500).send("Error getting project");
+      return res.status(500).send("Error getting project");
     }
   },
 );
