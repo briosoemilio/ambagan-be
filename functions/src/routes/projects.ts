@@ -85,11 +85,18 @@ projectsRouter.post(
           photoUrl: userDoc.data()?.photoURL || "",
         };
 
+        const member = {
+          id: userId,
+          ...owner,
+          isPending: false,
+          addedAt: FieldValue.serverTimestamp(),
+        };
+
         transaction.set(projectRef, {
           ...req.body,
           owner,
           createdBy: userId,
-          members: [userId],
+          members: [member],
           createdAt: FieldValue.serverTimestamp(),
         });
       });
