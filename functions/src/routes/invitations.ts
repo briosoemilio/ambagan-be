@@ -1,8 +1,13 @@
 import express, {Request, Response} from "express";
 import * as admin from "firebase-admin";
+import {FieldValue} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {validateDocument} from "../utils/validateDocument";
 import {Collection} from "../constants/Collection";
+import {
+  authenticated,
+  AuthenticatedRequest,
+} from "../middlewares/authenticated";
 
 // eslint-disable-next-line new-cap
 const invitationsRouter = express.Router();
@@ -41,20 +46,67 @@ invitationsRouter.get("/:id", async (req: Request, res: Response) => {
 });
 
 // POST /invitations - Create a new invitation
-invitationsRouter.post("/", async (req: Request, res: Response) => {
-  try {
-    const docRef = await admin
-      .firestore()
-      .collection(Collection.INVITATIONS)
-      .add(req.body);
-    res
-      .status(201)
-      .json({id: docRef.id, message: "Invitation added successfully"});
-  } catch (error) {
-    logger.error("Error adding invitation:", error);
-    res.status(500).send("Error adding invitation");
-  }
-});
+invitationsRouter.post(
+  "/",
+  authenticated,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.uid;
+      const {projectId} = req.body as {projectId?: string};
+
+      if (!userId) {
+        return res.status(401).send("Unauthorized");
+      }
+
+      if (!projectId) {
+        return res.status(400).send("Project not found");
+      }
+
+      const projectDoc = await admin
+        .firestore()
+        .collection(Collection.PROJECTS)
+        .doc(projectId)
+        .get();
+
+      if (!projectDoc.exists) {
+        return res.status(400).send("Project not found");
+      }
+
+      const userDoc = await admin
+        .firestore()
+        .collection(Collection.USERS)
+        .doc(userId)
+        .get();
+
+      const sentBy = {
+        userId,
+        name: userDoc.data()?.displayName || "",
+        photoUrl: userDoc.data()?.photoURL || "",
+      };
+
+      const docRef = admin
+        .firestore()
+        .collection(Collection.INVITATIONS)
+        .doc();
+
+      const invitationData = {
+        ...req.body,
+        sentBy,
+        status: "pending",
+        createdAt: FieldValue.serverTimestamp(),
+        inviteLink: `invite/${docRef.id}`,
+      };
+
+      await docRef.set(invitationData);
+      return res
+        .status(201)
+        .json({id: docRef.id, message: "Invitation added successfully"});
+    } catch (error) {
+      logger.error("Error adding invitation:", error);
+      return res.status(500).send("Error adding invitation");
+    }
+  },
+);
 
 // PATCH /invitations/:id - Update an invitation
 invitationsRouter.patch("/:id", async (req: Request, res: Response) => {
@@ -71,6 +123,8 @@ invitationsRouter.patch("/:id", async (req: Request, res: Response) => {
     res.status(500).send("Error updating invitation");
   }
 });
+
+// Accept an invitation
 
 // DELETE /invitations/:id - Delete an invitation
 invitationsRouter.delete("/:id", async (req: Request, res: Response) => {
